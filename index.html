@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>季候风 · 王菲</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  html,body { height:100%; overflow:hidden; background:#1a1612; }
+
+  /* ===== 背景：照片 ===== */
+  .bg {
+    position:fixed; inset:0;
+    background:url('bg.jpg') center/cover no-repeat;
+    z-index:0;
+  }
+  /* 压暗层：上浅下深，给歌词留阅读区 */
+  .bg::after {
+    content:''; position:absolute; inset:0;
+    background:
+      linear-gradient(to bottom,
+        rgba(20,16,10,0.25) 0%,
+        rgba(20,16,10,0.10) 30%,
+        rgba(20,16,10,0.35) 62%,
+        rgba(15,12,8,0.82) 100%);
+  }
+
+  .stage {
+    position:fixed; inset:0; z-index:1;
+    display:flex; flex-direction:column;
+  }
+
+  /* ===== 顶部标题 ===== */
+  .head {
+    padding:max(28px, env(safe-area-inset-top)) 32px 0;
+    color:#f5efe4;
+    opacity:0; transition:opacity 1.2s ease;
+  }
+  .head.on { opacity:1; }
+  .song-title {
+    font-family:"Songti SC","STSong","SimSun",serif;
+    font-size:clamp(22px,4vw,30px);
+    letter-spacing:0.35em;
+    text-shadow:0 1px 12px rgba(0,0,0,0.6);
+  }
+  .song-artist {
+    margin-top:6px;
+    font-size:13px; letter-spacing:0.45em;
+    color:rgba(245,239,228,0.65);
+    text-shadow:0 1px 8px rgba(0,0,0,0.6);
+  }
+
+  /* ===== 歌词滚动区（照片上滚动） ===== */
+  .lyric-mask {
+    flex:1;
+    overflow:hidden;
+    position:relative;
+    margin-top:8px;
+  }
+  .lyric-box {
+    position:absolute; left:0; right:0;
+    top:0;
+    padding:0 8vw;
+    will-change:transform;
+    transition:transform 0.7s cubic-bezier(0.22,0.61,0.36,1);
+  }
+  .lrc-line {
+    font-family:"Songti SC","STSong","SimSun",serif;
+    font-size:clamp(19px,3.4vw,26px);
+    line-height:2.15;
+    letter-spacing:0.14em;
+    color:rgba(245,239,228,0.30);
+    text-shadow:0 1px 10px rgba(0,0,0,0.55);
+    transition:color 0.6s ease, text-shadow 0.6s ease, filter 0.6s ease;
+    filter:blur(0.6px);
+  }
+  .lrc-line.past { color:rgba(245,239,228,0.14); filter:blur(0); }
+  .lrc-line.current {
+    color:#fff8ec;
+    text-shadow:0 0 18px rgba(255,214,140,0.45), 0 1px 12px rgba(0,0,0,0.7);
+    filter:blur(0);
+    animation:breath 4.2s ease-in-out infinite;
+  }
+  @keyframes breath {
+    0%,100% { text-shadow:0 0 16px rgba(255,214,140,0.35), 0 1px 12px rgba(0,0,0,0.7); }
+    50%     { text-shadow:0 0 26px rgba(255,214,140,0.60), 0 1px 12px rgba(0,0,0,0.7); }
+  }
+
+  /* ===== 底部控制 ===== */
+  .ctrl {
+    padding:0 32px max(30px, env(safe-area-inset-bottom));
+    opacity:0; transition:opacity 1.2s ease;
+  }
+  .ctrl.on { opacity:1; }
+
+  .progress-glow { position:relative; height:22px; cursor:pointer; }
+  /* 宽幅柔光底座 */
+  .progress-glow::before {
+    content:''; position:absolute; left:0; right:0; top:50%;
+    height:14px; transform:translateY(-50%);
+    background:radial-gradient(ellipse at var(--pgx,50%) 50%, rgba(255,205,130,0.28), transparent 70%);
+    filter:blur(4px);
+    animation:pgbreathe 3.6s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes pgbreathe {
+    0%,100% { opacity:0.55; } 50% { opacity:1; }
+  }
+  /* 轨道 */
+  .bar-track {
+    position:absolute; left:0; right:0; top:50%;
+    height:2px; transform:translateY(-50%);
+    background:rgba(245,239,228,0.18);
+    border-radius:2px; overflow:hidden;
+  }
+  .bar-fill {
+    height:100%; width:0%;
+    background:linear-gradient(90deg, rgba(255,214,150,0.5), #ffdda0);
+    box-shadow:0 0 8px rgba(255,210,140,0.8);
+  }
+  .bar-fill::after {
+    content:''; position:absolute; right:-1px; top:50%;
+    width:7px; height:7px; border-radius:50%;
+    transform:translate(0,-50%);
+    background:#fff3d8;
+    box-shadow:0 0 10px rgba(255,220,160,0.9);
+  }
+  .bar-track { position:absolute; }
+  .bar-fill  { position:relative; }
+
+  .time-row {
+    display:flex; justify-content:space-between;
+    margin-top:8px;
+    font-size:11px; letter-spacing:0.18em;
+    color:rgba(245,239,228,0.55);
+    font-variant-numeric:tabular-nums;
+  }
+
+  .play-row { display:flex; justify-content:center; margin-top:14px; }
+  .play-btn {
+    width:58px; height:58px; border-radius:50%;
+    border:1px solid rgba(255,222,170,0.5);
+    background:rgba(30,24,16,0.45);
+    backdrop-filter:blur(6px);
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .2s ease, background .3s ease;
+    position:relative;
+  }
+  .play-btn:active { transform:scale(0.94); }
+  .play-btn::before {
+    content:''; position:absolute; inset:-6px;
+    border-radius:50%;
+    border:1px solid rgba(255,214,150,0.22);
+    animation:ring 3.4s ease-in-out infinite;
+  }
+  @keyframes ring {
+    0%,100% { transform:scale(1);    opacity:0.5; }
+    50%     { transform:scale(1.06); opacity:0.9; }
+  }
+  .play-btn svg { width:22px; height:22px; fill:#ffe9c2; }
+  .play-btn .ic-pause { display:none; }
+  .playing .play-btn .ic-play  { display:none; }
+  .playing .play-btn .ic-pause { display:block; }
+
+  /* 首屏引导 */
+  .gate {
+    position:fixed; inset:0; z-index:5;
+    display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:22px;
+    background:rgba(12,10,7,0.30);
+    backdrop-filter:blur(2px);
+    cursor:pointer;
+    transition:opacity .8s ease;
+  }
+  .gate.hide { opacity:0; pointer-events:none; }
+  .gate-btn {
+    font-family:"Songti SC","STSong","SimSun",serif;
+    font-size:16px; letter-spacing:0.5em; text-indent:0.5em;
+    color:#ffe9c2;
+    border:1px solid rgba(255,222,170,0.55);
+    padding:16px 42px;
+    background:rgba(25,20,13,0.5);
+    animation:ring 3.4s ease-in-out infinite;
+  }
+  .gate-hint { font-size:11px; letter-spacing:0.3em; color:rgba(245,239,228,0.5); }
+</style>
+</head>
+<body>
+
+<div class="bg"></div>
+
+<div class="stage">
+  <div class="head" id="head">
+    <div class="song-title">季候风</div>
+    <div class="song-artist">王菲</div>
+  </div>
+
+  <div class="lyric-mask">
+    <div class="lyric-box" id="lyricBox"></div>
+  </div>
+
+  <div class="ctrl" id="ctrl">
+    <div class="progress-glow" id="prog">
+      <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
+    </div>
+    <div class="time-row">
+      <span id="tCur">00:00</span><span id="tDur">04:36</span>
+    </div>
+    <div class="play-row">
+      <button class="play-btn" id="playBtn" aria-label="播放/暂停">
+        <svg class="ic-play"  viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        <svg class="ic-pause" viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="gate" id="gate">
+  <div class="gate-btn">季候风</div>
+  <div class="gate-hint">王菲 · 点击开始</div>
+</div>
+
+<audio id="audio" src="song.mp3" preload="auto"></audio>
+
+<script>
+/* ====== 歌词（网易云时间轴，如整体偏差改 OFFSET：+快 -慢） ====== */
+const OFFSET = 0;
+const LRC = `[00:00.000]作词 : 潘源良
+[00:01.000]作曲 : 陈小霞/杨立德
+[00:02.000]编曲 : 袁卓凡
+[00:03.000]制作人 : 梁荣骏
+[00:14.120]明明还说分开
+[00:17.390]怎么会情动
+[00:20.970]早早应该离去
+[00:24.450]又竟一再相拥
+[00:28.190]缠绵时要推开
+[00:31.820]双手却无用
+[00:35.380]口中声声别了
+[00:38.740]难掩渴望面容
+[00:42.600]那次季候风
+[00:46.060]吹得那样凶
+[00:49.720]彷佛世上一切
+[00:52.250]也将消失所踪
+[00:56.890]你似季候风
+[01:00.510]抵挡计划全也无用
+[01:04.040]然後是场空
+[01:06.520]加上不死的心痛
+[01:15.050]沉迷还要放开
+[01:18.550]不甘你愚弄
+[01:22.060]怎么今天又再
+[01:25.630]内心一再汹涌
+[01:29.330]仍然来去匆匆
+[01:32.900]怎可说情重
+[01:36.450]可惜始终被你
+[01:39.820]撩起爱念极浓
+[01:43.580]这次季候风
+[01:47.130]吹得格外凶
+[01:50.790]彷佛世上一切
+[01:53.310]已经消失所踪
+[01:57.870]你似季候风
+[02:01.510]抵挡计划全也无用
+[02:05.120]然后是场空
+[02:07.530]加上不死的心痛
+[02:12.570]茫茫然这冷冷的风
+[02:15.720]终於稍作停顿
+[02:19.420]夜幕下没有停
+[02:22.930]只得我心痛
+[02:59.110]这次季候风
+[03:02.790]吹得格外凶
+[03:06.730]彷佛世上一切
+[03:09.310]已经消失所踪
+[03:13.880]你似季候风
+[03:17.490]抵挡计划全也无用
+[03:21.690]然后是场空
+[03:24.110]加上不死的心痛
+[03:28.920]这次季候风
+[03:32.340]吹得格外凶
+[03:36.020]彷佛世上一切
+[03:38.580]已经消失所踪
+[03:43.220]你似季候风
+[03:47.050]抵挡计划全也无用
+[03:50.730]然后是场空
+[03:53.160]加上不死的心痛
+[03:59.870]茫茫然这冷冷的风
+[04:03.210]终于稍作停顿
+[04:06.800]夜幕下没有停
+[04:10.300]只得我心痛`;
+
+/* ====== 构建歌词行 ====== */
+const lines = [];
+LRC.trim().split('\n').forEach(l => {
+  const m = l.match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)$/);
+  if (!m) return;
+  const t = parseInt(m[1])*60 + parseFloat(m[2]) + OFFSET;
+  const txt = m[3].trim();
+  if (!txt) return;                      // 跳过空行（间奏）
+  lines.push({ t, txt });
+});
+
+const lyricBox = document.getElementById('lyricBox');
+lines.forEach((ln, i) => {
+  const d = document.createElement('div');
+  d.className = 'lrc-line';
+  d.textContent = ln.txt;
+  lyricBox.appendChild(d);
+  ln.el = d;
+});
+
+/* ====== 播放器状态 ====== */
+const audio   = document.getElementById('audio');
+const gate    = document.getElementById('gate');
+const head    = document.getElementById('head');
+const ctrl    = document.getElementById('ctrl');
+const barFill = document.getElementById('barFill');
+const prog    = document.getElementById('prog');
+const tCur    = document.getElementById('tCur');
+const tDur    = document.getElementById('tDur');
+const body    = document.body;
+
+const fmt = s => {
+  if (!isFinite(s)) s = 0;
+  return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(Math.floor(s%60)).padStart(2,'0');
+};
+
+audio.addEventListener('loadedmetadata', () => tDur.textContent = fmt(audio.duration));
+
+let curIdx = -1;
+function syncLyric(t) {
+  let idx = -1;
+  for (let i = 0; i < lines.length; i++) { if (t >= lines[i].t) idx = i; else break; }
+  if (idx === curIdx) return;
+  // 更新行状态
+  lines.forEach((ln, i) => {
+    ln.el.classList.toggle('current', i === idx);
+    ln.el.classList.toggle('past',   i <  idx);
+  });
+  curIdx = idx;
+  // 滚动：当前行居中于歌词区
+  if (idx >= 0) {
+    const maskH = lyricBox.parentElement.clientHeight;
+    const elH   = lines[idx].el.offsetHeight;
+    const elTop = lines[idx].el.offsetTop;
+    const y = maskH * 0.42 - elTop - elH / 2;
+    lyricBox.style.transform = `translateY(${y}px)`;
+  }
+}
+
+audio.addEventListener('timeupdate', () => {
+  const p = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
+  barFill.style.width = p + '%';
+  prog.style.setProperty('--pgx', p + '%');
+  tCur.textContent = fmt(audio.currentTime);
+  syncLyric(audio.currentTime);
+});
+
+function play() {
+  audio.play();
+  body.classList.add('playing');
+  head.classList.add('on');
+  ctrl.classList.add('on');
+  gate.classList.add('hide');
+}
+function pause() {
+  audio.pause();
+  body.classList.remove('playing');
+}
+
+gate.addEventListener('click', play);
+document.getElementById('playBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  body.classList.contains('playing') ? pause() : play();
+});
+
+/* 进度条点击跳转 */
+prog.addEventListener('click', e => {
+  const r = prog.getBoundingClientRect();
+  const p = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  if (audio.duration) audio.currentTime = p * audio.duration;
+});
+</script>
+</body>
+</html>
